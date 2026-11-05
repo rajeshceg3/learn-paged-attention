@@ -187,6 +187,7 @@ for (const k of Object.keys(OWNER)) {
 const board = new THREE.Mesh(new RoundedBoxGeometry(4.0, 1.5, 0.22, 4, 0.12), clay("#7dcfa0"));
 board.position.set(0, 1.45, PORTRAIT ? -2.9 : -2.25);
 board.rotation.x = -0.1;
+board.scale.setScalar(PORTRAIT ? 0.8 : 1); if (PORTRAIT) board.position.x = -0.25;
 engine.add(board);
 const boardHull = inkify(board, 1.035);
 const CHIP_X = [-0.45, 0.4, 1.25];
@@ -283,6 +284,7 @@ function applyLayout() {
   slabGhost.geometry.dispose(); slabGhost.geometry = new THREE.EdgesGeometry(g, 24);
   tiles.forEach((t, i) => { const [tx, tz] = tileXY(i); t.position.x = tx; t.position.z = tz; });
   board.position.z = PORTRAIT ? -2.9 : -2.25;
+  board.scale.setScalar(PORTRAIT ? 0.8 : 1); board.position.x = PORTRAIT ? -0.25 : 0;
   askA.position.x = PORTRAIT ? -1.0 : -1.2; askB.position.x = PORTRAIT ? 1.0 : 1.2;
   const sp = PARTS.find((p) => p.mesh === slab);
   if (sp) sp.anchor.set(PORTRAIT ? 1.6 : 2.3, 0, PORTRAIT ? 2.0 : 1.5);
@@ -316,7 +318,7 @@ tiles.forEach((t, i) => {
   if (i === 10) { p.label = "free box"; p.anchor = new THREE.Vector3(0.0, 0.15, 0.1); }
   PARTS.push(p);
 });
-PARTS.push({ mesh: board, name: () => "Block table", text: () => "The map. It says which box holds which page of notes.", out: 1.0, label: "block table", anchor: new THREE.Vector3(1.7, 0.7, 0.15) });
+PARTS.push({ mesh: board, name: () => "Block table", text: () => "The map. It says which box holds which page of notes.", out: 1.0, label: "block table", anchor: new THREE.Vector3(PORTRAIT ? 1.0 : 1.6, 1.45, 0.15) });
 PARTS.push({ mesh: askA, name: () => "A question", text: () => "Someone asking the model something. Its notes grow, word by word.", out: 0.9, label: "question A", anchor: new THREE.Vector3(-0.1, 0.2, 0) });
 PARTS.push({ mesh: askB, name: () => "A question", text: () => "Someone asking the model something. Its notes grow, word by word.", out: 0.9 });
 PARTS.forEach((p) => { p.home = p.mesh.position.y; p.mesh.userData.part = p; });
@@ -446,7 +448,7 @@ const nextBtn = document.getElementById("next");
 const autoBtn = document.getElementById("autotoggle");
 let mode = 0;
 const tallScreen = () => innerWidth / innerHeight < 0.75;
-const CAM = { tall: [20.5, 21, 19.5], wide: [11.2, 12, 12.5] };
+const CAM = { tall: [17, 18, 17.5], wide: [11.2, 12, 12.5] };
 const camFor = (m) => (tallScreen() ? CAM.tall : CAM.wide)[m];
 let camDist = camFor(0);
 controls.maxDistance = camDist + 1;
