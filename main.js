@@ -43,7 +43,8 @@ const controls = new OrbitControls(camera, canvas);
 /* look a touch lower so the engine rides higher in frame, reserving the
    bottom band for the hint line (no card, no pill) - tall screens lift
    further, laptop gets a milder lift plus a slightly longer camera */
-let baseTargetY = 0.9;
+const PORTRAIT = innerWidth / innerHeight < 0.75;
+let baseTargetY = PORTRAIT ? 0.3 : 0.35;
 controls.target.set(0, baseTargetY, 0);
 controls.enablePan = false;
 controls.enableDamping = true;
@@ -141,20 +142,20 @@ if (document.fonts && document.fonts.load) {
 const C_A = "#e8735a", C_B = "#7fb3d5";
 
 /* the shelf (GPU memory) */
-const slab = new THREE.Mesh(new RoundedBoxGeometry(5.1, 0.5, 3.5, 5, 0.22), clay("#f2b25c"));
+const slab = new THREE.Mesh(new RoundedBoxGeometry(PORTRAIT ? 3.9 : 5.1, 0.5, PORTRAIT ? 4.7 : 3.5, 5, 0.22), clay("#f2b25c"));
 slab.position.y = 0.25;
 engine.add(slab);
 inkify(slab, 1.03);
 
 /* twelve boxes (physical blocks) */
-const COLS = 4, ROWS = 3;
+const COLS = PORTRAIT ? 3 : 4, ROWS = PORTRAIT ? 4 : 3;
 const tiles = [];
 const TILE_Y = 0.64;
 const tileGeo = new RoundedBoxGeometry(1.0, 0.28, 0.92, 4, 0.1);
 for (let i = 0; i < COLS * ROWS; i++) {
   const c = i % COLS, r = Math.floor(i / COLS);
   const t = new THREE.Mesh(tileGeo, clay("#ffe9c4"));
-  t.position.set((c - 1.5) * 1.18, TILE_Y, (r - 1) * 1.08 + 0.15);
+  t.position.set((c - (COLS - 1) / 2) * 1.18, TILE_Y, (r - (ROWS - 1) / 2) * 1.08 + 0.15);
   engine.add(t);
   inkify(t, 1.05);
   const num = textPlane(String(i), 0.46);
@@ -181,7 +182,7 @@ for (const k of Object.keys(OWNER)) {
 
 /* the map (block table) */
 const board = new THREE.Mesh(new RoundedBoxGeometry(4.0, 1.5, 0.22, 4, 0.12), clay("#7dcfa0"));
-board.position.set(0, 1.45, -2.25);
+board.position.set(0, 1.45, PORTRAIT ? -3.1 : -2.25);
 board.rotation.x = -0.1;
 engine.add(board);
 inkify(board, 1.035);
@@ -220,8 +221,8 @@ function makeAsker(color, letter, x) {
   m.add(l);
   return m;
 }
-const askA = makeAsker(C_A, "A", -1.2);
-const askB = makeAsker(C_B, "B", 1.2);
+const askA = makeAsker(C_A, "A", PORTRAIT ? -1.0 : -1.2);
+const askB = makeAsker(C_B, "B", PORTRAIT ? 1.0 : 1.2);
 const askers = { A: askA, B: askB };
 
 /* flying words, the lookup hopper and dashed leader lines */
@@ -261,10 +262,10 @@ const tileText = (i) => (cols.has(i) && cols.get(i).scale.y > 0.02
   ? "A small box with a fixed size. It keeps the saved notes (keys and values) for a few words."
   : "An empty box. Any question can use it next. It can sit anywhere on the shelf.");
 const PARTS = [];
-PARTS.push({ mesh: slab, name: () => "GPU memory", text: () => "The big shelf. All the saved notes live here.", out: 0, label: "gpu memory", anchor: new THREE.Vector3(2.3, 0, 1.5) });
+PARTS.push({ mesh: slab, name: () => "GPU memory", text: () => "The big shelf. All the saved notes live here.", out: 0, label: "gpu memory", anchor: new THREE.Vector3(PORTRAIT ? 1.8 : 2.3, 0, PORTRAIT ? 2.1 : 1.5) });
 tiles.forEach((t, i) => {
   const r = Math.floor(i / COLS);
-  const p = { mesh: t, name: () => tileName(i), text: () => tileText(i), out: [0.8, 1.4, 2.0][r] };
+  const p = { mesh: t, name: () => tileName(i), text: () => tileText(i), out: [0.7, 1.2, 1.7, 2.2][r] };
   if (i === 5) { p.label = "box of notes"; p.anchor = new THREE.Vector3(0.45, 0.15, 0.1); }
   if (i === 10) { p.label = "free box"; p.anchor = new THREE.Vector3(0.0, 0.15, 0.1); }
   PARTS.push(p);
@@ -399,9 +400,11 @@ const nextBtn = document.getElementById("next");
 const autoBtn = document.getElementById("autotoggle");
 let mode = 0;
 const tallScreen = () => innerWidth / innerHeight < 0.75;
-const CAM = { tall: [19, 21, 20], wide: [8.8, 11, 12] };
+const CAM = { tall: [20.5, 23, 22], wide: [10.2, 12, 12.5] };
 const camFor = (m) => (tallScreen() ? CAM.tall : CAM.wide)[m];
 let camDist = camFor(0);
+controls.maxDistance = camDist + 1;
+camera.position.setLength(camDist);
 
 const HINTS = [
   "Drag to spin it around",
@@ -651,6 +654,7 @@ function tick() {
     col.visible = fillNow[k] > 0.012;
   }
   for (const chip of chips) {
+    chip.visible = chip.scale.x > 0.03;
     const want = target[chip.userData.tile] > 0.01 ? 1 : 0;
     if (chipWant.get(chip) !== want) {
       chipWant.set(chip, want);
@@ -663,7 +667,7 @@ function tick() {
   const len = camera.position.length();
   camera.position.setLength(lerp(len, camDist, 1 - Math.exp(-2.2 * dt)));
   const tall = innerWidth / innerHeight < 0.75;
-  const lift = mode === 1 ? (tall ? 1.4 : 1.0) : mode === 2 ? (tall ? 0.9 : 0.8) : 0;
+  const lift = mode === 1 ? (tall ? 1.4 : 1.0) : mode === 2 ? (tall ? 1.2 : 1.7) : 0;
   controls.target.y = lerp(controls.target.y, baseTargetY + lift, 1 - Math.exp(-2.2 * dt));
   stepSprings(dt);
   controls.update();
