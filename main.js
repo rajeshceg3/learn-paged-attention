@@ -43,7 +43,7 @@ const controls = new OrbitControls(camera, canvas);
 /* look a touch lower so the engine rides higher in frame, reserving the
    bottom band for the hint line (no card, no pill) - tall screens lift
    further, laptop gets a milder lift plus a slightly longer camera */
-const PORTRAIT = innerWidth / innerHeight < 0.75;
+let PORTRAIT = innerWidth / innerHeight < 0.75;
 let baseTargetY = PORTRAIT ? 0.3 : 0.35;
 controls.target.set(0, baseTargetY, 0);
 controls.enablePan = false;
@@ -142,10 +142,13 @@ if (document.fonts && document.fonts.load) {
 const C_A = "#e8735a", C_B = "#7fb3d5";
 
 /* the shelf (GPU memory) */
-const slab = new THREE.Mesh(new RoundedBoxGeometry(PORTRAIT ? 3.9 : 5.1, 0.5, PORTRAIT ? 4.7 : 3.5, 5, 0.22), clay("#f2b25c"));
+const slabGeo = () => new RoundedBoxGeometry(PORTRAIT ? 3.6 : 5.1, 0.5, PORTRAIT ? 4.5 : 3.5, 5, 0.22);
+const tileXY = (i) => { const c = i % COLS_(), r = Math.floor(i / COLS_()); return [(c - (COLS_() - 1) / 2) * (PORTRAIT ? 1.1 : 1.18), (r - (ROWS_() - 1) / 2) * (PORTRAIT ? 1.02 : 1.08) + 0.15]; };
+const COLS_ = () => (PORTRAIT ? 3 : 4), ROWS_ = () => (PORTRAIT ? 4 : 3);
+const slab = new THREE.Mesh(slabGeo(), clay("#f2b25c"));
 slab.position.y = 0.25;
 engine.add(slab);
-inkify(slab, 1.03);
+const slabHull = inkify(slab, 1.03);
 
 /* twelve boxes (physical blocks) */
 const COLS = PORTRAIT ? 3 : 4, ROWS = PORTRAIT ? 4 : 3;
@@ -155,7 +158,7 @@ const tileGeo = new RoundedBoxGeometry(1.0, 0.28, 0.92, 4, 0.1);
 for (let i = 0; i < COLS * ROWS; i++) {
   const c = i % COLS, r = Math.floor(i / COLS);
   const t = new THREE.Mesh(tileGeo, clay("#ffe9c4"));
-  t.position.set((c - (COLS - 1) / 2) * 1.18, TILE_Y, (r - (ROWS - 1) / 2) * 1.08 + 0.15);
+  { const [tx, tz] = tileXY(i); t.position.set(tx, TILE_Y, tz); }
   engine.add(t);
   inkify(t, 1.05);
   const num = textPlane(String(i), 0.46);
@@ -182,10 +185,10 @@ for (const k of Object.keys(OWNER)) {
 
 /* the map (block table) */
 const board = new THREE.Mesh(new RoundedBoxGeometry(4.0, 1.5, 0.22, 4, 0.12), clay("#7dcfa0"));
-board.position.set(0, 1.45, PORTRAIT ? -3.1 : -2.25);
+board.position.set(0, 1.45, PORTRAIT ? -2.9 : -2.25);
 board.rotation.x = -0.1;
 engine.add(board);
-inkify(board, 1.035);
+const boardHull = inkify(board, 1.035);
 const CHIP_X = [-0.45, 0.4, 1.25];
 const ROW_Y = { A: 0.36, B: -0.3 };
 const chips = [];
@@ -240,7 +243,10 @@ scene.updateMatrixWorld(true);
 const tileTop = (i) => { const v = new THREE.Vector3(0, 0.3, 0); tiles[i].localToWorld(v); return v; };
 const A_ORDER = [5, 2, 9];
 const lineMat = new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0 });
-const lookLines = A_ORDER.map((ti, k) => {
+let lookLines = [];
+function buildLines() {
+  lookLines.forEach((g) => { scene.remove(g); g.children.forEach((m) => m.geometry.dispose()); });
+  lookLines = A_ORDER.map((ti, k) => {
   const chip = chips.find((c) => c.userData.tile === ti);
   const a = new THREE.Vector3(); chip.getWorldPosition(a);
   const b = tileTop(ti);
@@ -254,6 +260,46 @@ const lookLines = A_ORDER.map((ti, k) => {
   line.visible = false;
   scene.add(line);
   return line;
+  });
+}
+buildLines();
+
+
+/* x-ray: the shelf and the map fade to ink edges, like the reference's shells */
+const slabGhost = ghostify(slab), boardGhost = ghostify(board);
+const xrayItems = [[slab, slabGhost, slabHull], [board, boardGhost, boardHull]];
+function setXrayTargets(on) {
+  for (const [mesh, edges, hull] of xrayItems) {
+    spring(edges.material, "opacity", on ? 0.9 : 0, { stiffness: 40, damping: 10 });
+    spring(mesh.material, "opacity", on ? 0.16 : 1, { stiffness: 40, damping: 10 });
+    if (!mesh.material.transparent) { mesh.material.transparent = true; mesh.material.needsUpdate = true; }
+    spring(hull.material, "opacity", on ? 0 : 1, { stiffness: 40, damping: 10 });
+  }
+}
+/* re-lay the scene when the screen flips between tall and wide */
+function applyLayout() {
+  const g = slabGeo();
+  slab.geometry.dispose(); slab.geometry = g; slabHull.geometry = g;
+  slabGhost.geometry.dispose(); slabGhost.geometry = new THREE.EdgesGeometry(g, 24);
+  tiles.forEach((t, i) => { const [tx, tz] = tileXY(i); t.position.x = tx; t.position.z = tz; });
+  board.position.z = PORTRAIT ? -2.9 : -2.25;
+  askA.position.x = PORTRAIT ? -1.0 : -1.2; askB.position.x = PORTRAIT ? 1.0 : 1.2;
+  const sp = PARTS.find((p) => p.mesh === slab);
+  if (sp) sp.anchor.set(PORTRAIT ? 1.6 : 2.3, 0, PORTRAIT ? 2.0 : 1.5);
+  baseTargetY = PORTRAIT ? 0.3 : 0.35;
+  scene.updateMatrixWorld(true);
+  buildLines();
+}
+
+addEventListener("resize", () => {
+  const p = innerWidth / innerHeight < 0.75;
+  if (p === PORTRAIT) return;
+  PORTRAIT = p;
+  applyLayout();
+  if (p) camera.position.set(3.6, 6.2, 5.0); else camera.position.set(4.8, 3.8, 6.8);
+  camDist = camFor(mode);
+  controls.maxDistance = camDist + 1;
+  camera.position.setLength(camDist);
 });
 
 /* ---------- parts registry ---------- */
@@ -262,7 +308,7 @@ const tileText = (i) => (cols.has(i) && cols.get(i).scale.y > 0.02
   ? "A small box with a fixed size. It keeps the saved notes (keys and values) for a few words."
   : "An empty box. Any question can use it next. It can sit anywhere on the shelf.");
 const PARTS = [];
-PARTS.push({ mesh: slab, name: () => "GPU memory", text: () => "The big shelf. All the saved notes live here.", out: 0, label: "gpu memory", anchor: new THREE.Vector3(PORTRAIT ? 1.8 : 2.3, 0, PORTRAIT ? 2.1 : 1.5) });
+PARTS.push({ mesh: slab, name: () => "GPU memory", text: () => "The big shelf. All the saved notes live here.", out: 0, label: "gpu memory", anchor: new THREE.Vector3(PORTRAIT ? 1.6 : 2.3, 0, PORTRAIT ? 2.0 : 1.5) });
 tiles.forEach((t, i) => {
   const r = Math.floor(i / COLS);
   const p = { mesh: t, name: () => tileName(i), text: () => tileText(i), out: [0.7, 1.2, 1.7, 2.2][r] };
@@ -400,10 +446,11 @@ const nextBtn = document.getElementById("next");
 const autoBtn = document.getElementById("autotoggle");
 let mode = 0;
 const tallScreen = () => innerWidth / innerHeight < 0.75;
-const CAM = { tall: [20.5, 23, 22], wide: [11.2, 12, 12.5] };
+const CAM = { tall: [20.5, 21, 19.5], wide: [11.2, 12, 12.5] };
 const camFor = (m) => (tallScreen() ? CAM.tall : CAM.wide)[m];
 let camDist = camFor(0);
 controls.maxDistance = camDist + 1;
+if (PORTRAIT) camera.position.set(3.6, 6.2, 5.0);
 camera.position.setLength(camDist);
 
 const HINTS = [
@@ -435,8 +482,10 @@ function setMode(m) {
   if (m === 1) {
     banner.classList.remove("pop"); oneliner.classList.remove("show");
     for (const p of PARTS) spring(p.mesh.position, "y", p.home + p.out, { stiffness: 42, damping: 8.5 });
+    setXrayTargets(true);
   } else {
     for (const p of PARTS) spring(p.mesh.position, "y", p.home, { stiffness: 48, damping: 9 });
+    setXrayTargets(m === 2);
   }
   if (m === 2) {
     cycleT = 0; lastStroke = -1; boomSeen = false;
