@@ -123,7 +123,7 @@ function textPlane(text, size, color = "#33241c", billboard = false) {
   const draw = () => {
     const g = c.getContext("2d");
     g.clearRect(0, 0, 128, 128);
-    g.font = '600 92px "Caveat", cursive';
+    g.font = '600 84px "Fredoka", system-ui, sans-serif';
     g.textAlign = "center"; g.textBaseline = "middle";
     g.fillStyle = color;
     g.fillText(text, 64, 70);
@@ -136,7 +136,7 @@ function textPlane(text, size, color = "#33241c", billboard = false) {
   return m;
 }
 if (document.fonts && document.fonts.load) {
-  document.fonts.load('600 40px "Caveat"').then(() => redraws.forEach((d) => d())).catch(() => {});
+  document.fonts.load('600 40px "Fredoka"').then(() => redraws.forEach((d) => d())).catch(() => {});
 }
 
 const C_A = "#e8735a", C_B = "#7fb3d5";
