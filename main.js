@@ -289,6 +289,7 @@ function applyLayout() {
   const sp = PARTS.find((p) => p.mesh === slab);
   if (sp) sp.anchor.set(PORTRAIT ? 1.6 : 2.3, 0, PORTRAIT ? 2.0 : 1.5);
   baseTargetY = PORTRAIT ? 0.3 : 0.35;
+  if (typeof setTileLabels === "function" && typeof labeledParts !== "undefined") setTileLabels();
   scene.updateMatrixWorld(true);
   buildLines();
 }
@@ -314,8 +315,8 @@ PARTS.push({ mesh: slab, name: () => "GPU memory", text: () => "The big shelf. A
 tiles.forEach((t, i) => {
   const r = Math.floor(i / COLS);
   const p = { mesh: t, name: () => tileName(i), text: () => tileText(i), out: [0.7, 1.2, 1.7, 2.2][r] };
-  if (i === 5) { p.label = "box of notes"; p.anchor = new THREE.Vector3(0.45, 0.15, 0.1); }
-  if (i === 10) { p.label = "free box"; p.anchor = new THREE.Vector3(0.0, 0.15, 0.1); }
+  if (i === 5 || i === 7) { p.label = "box of notes"; p.anchor = new THREE.Vector3(0.5, 0.15, 0.0); p.labelOn = false; }
+  if (i === 6 || i === 8) { p.label = "free box"; p.anchor = new THREE.Vector3(-0.5, 0.15, 0.0); p.labelOn = false; }
   PARTS.push(p);
 });
 PARTS.push({ mesh: board, name: () => "Block table", text: () => "The map. It says which box holds which page of notes.", out: 1.0, label: "block table", anchor: new THREE.Vector3(PORTRAIT ? 1.0 : 1.6, 1.45, 0.15) });
@@ -331,6 +332,15 @@ const tmpV = new THREE.Vector3();
 const labelLayer = document.getElementById("labels");
 const leaderSvg = document.getElementById("leaders");
 const labeledParts = PARTS.filter((p) => p.label);
+/* one "box of notes" and one "free box" label, on the outer edge of a tile at the model's side */
+function setTileLabels() {
+  const notes = PORTRAIT ? 5 : 7, free = PORTRAIT ? 6 : 8;
+  for (const p of labeledParts) {
+    const i = tiles.indexOf(p.mesh);
+    if (i >= 0) p.labelOn = i === notes || i === free;
+  }
+}
+setTileLabels();
 const labelEls = new Map();
 labeledParts.forEach((p) => {
   const el = document.createElement("div");
@@ -367,7 +377,7 @@ function projectLabels() {
   labeledParts.forEach((p, i) => {
     const el = labelEls.get(p);
     const path = leaderPaths.get(p);
-    if (!show) { el.classList.remove("on"); path.classList.remove("on"); return; }
+    if (!show || p.labelOn === false) { el.classList.remove("on"); path.classList.remove("on"); return; }
     tmpV.copy(p.anchor);
     p.mesh.localToWorld(tmpV);
     tmpV.project(camera);
@@ -391,7 +401,17 @@ function projectLabels() {
     columns[0][1] = items.filter((it) => it.side === -1).sort((a, b) => a.ay - b.ay);
     columns[1][1] = items.filter((it) => it.side === 1).sort((a, b) => a.ay - b.ay);
   }
-  const minAx = Math.min(...items.map((it) => it.ax)), maxAx = Math.max(...items.map((it) => it.ax));
+  /* model extent on screen: the corners of the slab and the board, not the anchors */
+  let minAx = Infinity, maxAx = -Infinity;
+  for (const m of [slab, board]) {
+    m.geometry.computeBoundingBox();
+    const bb = m.geometry.boundingBox;
+    for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+      tmpV.set(x, y, z); m.localToWorld(tmpV); tmpV.project(camera);
+      const sx = (tmpV.x * 0.5 + 0.5) * w;
+      if (sx < minAx) minAx = sx; if (sx > maxAx) maxAx = sx;
+    }
+  }
   for (const [side0, col] of columns) {
     let prevY = topReserveY() + 4;
     for (const it of col) {
@@ -404,7 +424,7 @@ function projectLabels() {
          neither touch the model nor run past the screen edge */
       const half = it.el.offsetWidth / 2 + 8;
       const lx0 = w >= 500
-        ? Math.max(70, Math.min(w - 70, side < 0 ? minAx - 125 : maxAx + 125))
+        ? Math.max(70, Math.min(w - 70, side < 0 ? minAx - 24 - half : maxAx + 24 + half))
         : (side < 0 ? half : w - half);
       const lx = Math.max(half, Math.min(w - half, lx0));
       it.el.style.transform = `translate(${Math.round(lx)}px, ${Math.round(ly)}px) translate(-50%, -100%)`;
