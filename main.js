@@ -400,7 +400,7 @@ const nextBtn = document.getElementById("next");
 const autoBtn = document.getElementById("autotoggle");
 let mode = 0;
 const tallScreen = () => innerWidth / innerHeight < 0.75;
-const CAM = { tall: [20.5, 23, 22], wide: [10.2, 12, 12.5] };
+const CAM = { tall: [20.5, 23, 22], wide: [11.2, 12, 12.5] };
 const camFor = (m) => (tallScreen() ? CAM.tall : CAM.wide)[m];
 let camDist = camFor(0);
 controls.maxDistance = camDist + 1;
