@@ -492,11 +492,11 @@ function fitSpatialStage() {
   }
   distance*=1.08;
   const dir=camera.position.clone().sub(controls.target).normalize();
-  controls.target.copy(sphere.center);
-  camera.position.copy(sphere.center).addScaledVector(dir,distance*zoomScale);
   if(lastFittedMode===mode&&fittedDistance>0)zoomScale=Math.max(1,Math.min(1.7,camera.position.distanceTo(controls.target)/fittedDistance));
   else zoomScale=1;
   fittedDistance=distance;lastFittedMode=mode;
+  controls.target.copy(sphere.center);
+  camera.position.copy(sphere.center).addScaledVector(dir,distance*zoomScale);
   controls.minDistance=distance;controls.maxDistance=distance*1.7;
   camera.lookAt(sphere.center);
   camera.updateMatrixWorld(true);
@@ -1088,7 +1088,7 @@ function tick() {
   if(mode!==2&&mode!==3)camera.position.setLength(lerp(len, camDist, 1 - Math.exp(-2.2 * dt)));
   const tall = innerWidth / innerHeight < 0.75;
   const lift = mode === 2 ? (tall ? 1.4 : 1.0) : mode === 3 ? (tall ? 1.2 : 1.7) : 0;
-  controls.target.y = lerp(controls.target.y, baseTargetY + lift, 1 - Math.exp(-2.2 * dt));
+  if(mode!==2&&mode!==3)controls.target.y = lerp(controls.target.y, baseTargetY + lift, 1 - Math.exp(-2.2 * dt));
   stepSprings(dt);
   controls.update();
   fitSpatialStage();
