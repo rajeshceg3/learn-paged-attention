@@ -1070,24 +1070,6 @@ function tick() {
 tick();
 setMode(0);
 
-/* test handle: lets the local render-check drive taps and read state */
-window.__pa = {
-  tiles,
-  state: () => ({ mode, whyState, curStroke, predictPending, predictDone, aThird, quizStep, cycleT, lastStroke, stepRunning }),
-  screen(i) {
-    const v = new THREE.Vector3();
-    tiles[i].getWorldPosition(v); v.project(camera);
-    return [(v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight];
-  },
-  rayAt(x, y) {
-    const r = new THREE.Raycaster();
-    r.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -((y / innerHeight) * 2 - 1)), camera);
-    const hit = r.intersectObjects(pickMeshes.concat(tiles), false)[0];
-    if (!hit) return null;
-    const o = hit.object;
-    return o.userData.index !== undefined ? "tile " + o.userData.index : (o.userData.tileIndex !== undefined ? "col " + o.userData.tileIndex : o.type);
-  },
-};
 
 /* ---------- veil ---------- */
 setTimeout(() => {
