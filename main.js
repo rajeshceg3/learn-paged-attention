@@ -47,7 +47,7 @@ let PORTRAIT = innerWidth / innerHeight < 0.75;
 let baseTargetY = PORTRAIT ? 0.3 : 0.35;
 controls.target.set(0, baseTargetY, 0);
 controls.enablePan = false;
-controls.enableZoom = false; // Reserved-stage fitting keeps named parts readable through rotation.
+controls.enableZoom = true;
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 4.5;
@@ -431,6 +431,7 @@ const annotationButtons = labeledParts.map((p,i)=>{
  const option=document.createElement("option");option.value=String(i);option.textContent=p.label;annotationSelect.appendChild(option);return option;
 });
 annotationSelect.addEventListener("change",()=>{selectedAnnotation=Number(annotationSelect.value);wakeChrome();});
+let fittedDistance=0, zoomScale=1, lastFittedMode=-1;
 let modelStage = {x:0,y:0,w:innerWidth,h:innerHeight};
 function spatialStage() {
   const annotated = mode === 2 || mode === 3;
@@ -463,7 +464,7 @@ function projectLabels() {
   const path=leaderPaths.get(p);
   leaderSvg.setAttribute("viewBox",`0 0 ${innerWidth} ${innerHeight}`);
   const rail = modelStage.x+modelStage.w+3;
-  path.setAttribute("d",`M ${ax} ${ay} L ${rail} ${ay} L ${rail} ${ly-12} L ${lx} ${ly}`);
+  path.setAttribute("d",`M ${ax} ${ay} L ${lx} ${ly}`);
   const hitRay=new THREE.Raycaster();
   hitRay.setFromCamera(new THREE.Vector2(tmpV.x,tmpV.y),camera);
   const hits=hitRay.intersectObjects([slab,board,askA,askB,...tiles,...cols.values()],false);
@@ -473,7 +474,7 @@ function fitSpatialStage() {
   modelStage=spatialStage();
   camera.aspect=modelStage.w/modelStage.h;
   camera.updateProjectionMatrix();
-  if(mode!==2&&mode!==3)return;
+  if(mode!==2&&mode!==3){lastFittedMode=-1;return;}
   // Fit all meaningful parts (including exploded poses) at every camera angle.
   scene.updateMatrixWorld(true);
   const box=new THREE.Box3();
@@ -492,8 +493,11 @@ function fitSpatialStage() {
   distance*=1.08;
   const dir=camera.position.clone().sub(controls.target).normalize();
   controls.target.copy(sphere.center);
-  camera.position.copy(sphere.center).addScaledVector(dir,distance);
-  controls.minDistance=4.5;controls.maxDistance=40;
+  camera.position.copy(sphere.center).addScaledVector(dir,distance*zoomScale);
+  if(lastFittedMode===mode&&fittedDistance>0)zoomScale=Math.max(1,Math.min(1.7,camera.position.distanceTo(controls.target)/fittedDistance));
+  else zoomScale=1;
+  fittedDistance=distance;lastFittedMode=mode;
+  controls.minDistance=distance;controls.maxDistance=distance*1.7;
   camera.lookAt(sphere.center);
   camera.updateMatrixWorld(true);
 }
@@ -629,7 +633,7 @@ const cardName = document.getElementById("card-name");
 const cardText = document.getElementById("card-text");
 const cardChoices = document.getElementById("card-choices");
 const cardOk = document.getElementById("card-ok");
-const chrome = [...document.querySelectorAll(".chrome")].filter((c) => c.id !== "modes");
+const chrome = [...document.querySelectorAll(".chrome")].filter((c) => !["modes","card","stepui"].includes(c.id));
 const modeBtns = [...document.querySelectorAll(".modebtn")];
 const stepui = document.getElementById("stepui");
 const nextBtn = document.getElementById("next");
@@ -1093,7 +1097,7 @@ function tick() {
   renderer.setViewport(modelStage.x,innerHeight-modelStage.y-modelStage.h,modelStage.w,modelStage.h);
   renderer.setScissor(modelStage.x,innerHeight-modelStage.y-modelStage.h,modelStage.w,modelStage.h);
   renderer.setScissorTest(true);
-  renderer.render(scene, camera);
+  if(mode!==4 && !(card.classList.contains("show")&&!card.classList.contains("secret")))renderer.render(scene, camera);
   renderer.setScissorTest(false);
   requestAnimationFrame(tick);
 }

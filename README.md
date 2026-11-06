@@ -12,6 +12,6 @@ Static page, no build step. Open `index.html` through any static server.
 
 ## Annotation layout
 
-Peek inside and Make it go use one selected named part at a time. The picker is outside a separately fitted model stage; its connector ends above the picker. Hidden-behind-another-part connectors are suppressed rather than pointing through an unrelated part. Drag still rotates the model; camera distance is fitted automatically rather than wheel zooming into teaching text. Short landscape screens use a separate right-hand reading/control column.
+Peek inside and Make it go use one selected named part at a time. The picker is outside a separately fitted model stage; its connector ends above the picker. Hidden-behind-another-part connectors are suppressed rather than pointing through an unrelated part. Drag still rotates the model; camera distance has a fitted safe near limit, with wheel/pinch zoom out retained up to 1.7 times that distance. Short landscape screens use a separate right-hand reading/control column.
 
 Regression: install Playwright locally, then `node tests/spatial-regression.cjs` (Chrome executable `/usr/bin/google-chrome`; set `PLAYWRIGHT_PATH` or `VIEWPORTS` when needed). Tests sample all available named parts while dragging at phone, laptop and landscape sizes, check projected bounds and control separation, and save pixels. Visual review and production recheck remain required. See `docs/MODEL_TEXT_RULES.md`.
