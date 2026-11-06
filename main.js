@@ -682,6 +682,7 @@ function setMode(m) {
   card.classList.remove("show", "secret");
   banner.classList.remove("muted");
   cardChoices.classList.remove("show");
+  if (m !== 4) cardOk.textContent = "Got it!";
   /* Your turn gives the stage to the learner's words: on wide screens the map
      drops out of the final headline's way */
   const quizStage = m === 4 && !PORTRAIT;
