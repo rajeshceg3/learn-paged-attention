@@ -213,9 +213,9 @@ for (const k of Object.keys(OWNER_GO)) ensureCol(+k, OWNER_GO[k]);
 /* the map (each request's block table). Three rows: A, B and - once the
    Why? story needs it - C. Chips are re-numbered live as boxes move. */
 const boardPop = new THREE.Group();          /* layout owns this wrapper */
-boardPop.position.set(0, 1.5, PORTRAIT ? -2.9 : -2.25);
+boardPop.position.set(0, PORTRAIT ? 1.12 : 1.5, PORTRAIT ? -3.35 : -2.25);
 boardPop.rotation.x = -0.1;
-boardPop.scale.setScalar(PORTRAIT ? 0.8 : 1); if (PORTRAIT) boardPop.position.x = -0.25;
+boardPop.scale.setScalar(PORTRAIT ? 0.68 : 1); if (PORTRAIT) boardPop.position.x = -0.25;
 engine.add(boardPop);
 const board = new THREE.Mesh(new RoundedBoxGeometry(4.0, 1.95, 0.22, 4, 0.12), clay("#7dcfa0"));
 boardPop.add(board);
@@ -340,8 +340,9 @@ function applyLayout() {
   slab.geometry.dispose(); slab.geometry = g; slabHull.geometry = g;
   slabGhost.geometry.dispose(); slabGhost.geometry = new THREE.EdgesGeometry(g, 24);
   tiles.forEach((t, i) => { const [tx, tz] = tileXY(i); t.position.x = tx; t.position.z = tz; });
-  boardPop.position.z = PORTRAIT ? -2.9 : -2.25;
-  boardPop.scale.setScalar(PORTRAIT ? 0.8 : 1); boardPop.position.x = PORTRAIT ? -0.25 : 0;
+  boardPop.position.z = PORTRAIT ? -3.35 : -2.25;
+  boardPop.position.y = PORTRAIT ? 1.12 : 1.5;
+  boardPop.scale.setScalar(PORTRAIT ? 0.68 : 1); boardPop.position.x = PORTRAIT ? -0.25 : 0;
   askA.position.x = PORTRAIT ? -1.0 : -1.2; askB.position.x = PORTRAIT ? 1.0 : 1.2;
   askC.position.x = 0;
   const sp = PARTS.find((p) => p.mesh === slab);
