@@ -47,6 +47,7 @@ let PORTRAIT = innerWidth / innerHeight < 0.75;
 let baseTargetY = PORTRAIT ? 0.3 : 0.35;
 controls.target.set(0, baseTargetY, 0);
 controls.enablePan = false;
+controls.enableZoom = true;
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 4.5;
@@ -416,76 +417,89 @@ labeledParts.forEach((p) => {
   leaderSvg.appendChild(path);
   leaderPaths.set(p, path);
 });
-/* top band reserved for the narration banner while it runs (Make it go!).
-   Measured from the live DOM, so it holds at any width, font or safe-area.
-   94 matches the long-standing stacking floor when no banner is up. */
-let reserveCacheW = -1, reserveCacheY = 94;
-function topReserveY() {
-  if (mode !== 3) return 94;
-  if (reserveCacheW !== innerWidth) {
-    reserveCacheW = innerWidth;
-    reserveCacheY = oneliner.getBoundingClientRect().bottom + 30;
-  }
-  return reserveCacheY;
+/* One selected annotation lives outside the model stage. Other parts stay
+   available as semantic controls, not a stack of text over the scene. */
+let selectedAnnotation = 0;
+const annotationNav = document.createElement("nav");
+annotationNav.id = "annotation-nav";
+annotationNav.setAttribute("aria-label", "Model parts");
+document.body.appendChild(annotationNav);
+const annotationSelect = document.createElement("select");
+annotationSelect.setAttribute("aria-label","Named model part");
+annotationNav.appendChild(annotationSelect);
+const annotationButtons = labeledParts.map((p,i)=>{
+ const option=document.createElement("option");option.value=String(i);option.textContent=p.label;annotationSelect.appendChild(option);return option;
+});
+annotationSelect.addEventListener("change",()=>{selectedAnnotation=Number(annotationSelect.value);wakeChrome();});
+let fittedDistance=0, zoomScale=1, lastFittedMode=-1;
+let modelStage = {x:0,y:0,w:innerWidth,h:innerHeight};
+function spatialStage() {
+  const annotated = mode === 2 || mode === 3;
+  if (!annotated) return {x:0,y:0,w:innerWidth,h:innerHeight};
+  if(innerHeight<500)return {x:14,y:20,w:innerWidth-310,h:innerHeight-40};
+  const top = mode === 3 ? Math.max(150, oneliner.getBoundingClientRect().bottom + 24) : 42;
+  const bottom = Math.min(card.classList.contains("show") ? card.getBoundingClientRect().top-20 : innerHeight, hint.getBoundingClientRect().top - 112,
+    (mode === 3 ? stepui : document.getElementById("modes")).getBoundingClientRect().top - 110);
+  return {x:14,y:top,w:innerWidth-28,h:Math.max(100,bottom-top)};
 }
 function projectLabels() {
-  const show = mode === 2 || mode === 3;
-  const w = innerWidth, h = innerHeight;
-  leaderSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-  const items = [];
-  labeledParts.forEach((p, i) => {
-    const el = labelEls.get(p);
-    const path = leaderPaths.get(p);
-    if (!show || p.labelOn === false) { el.classList.remove("on"); path.classList.remove("on"); return; }
-    tmpV.copy(p.anchor);
-    p.mesh.localToWorld(tmpV);
-    tmpV.project(camera);
-    if (tmpV.z > 1) { el.classList.remove("on"); path.classList.remove("on"); return; }
-    items.push({
-      p, el, path,
-      ax: (tmpV.x * 0.5 + 0.5) * w,
-      ay: (-tmpV.y * 0.5 + 0.5) * h,
-      side: i % 2 === 0 ? -1 : 1,
-    });
-  });
-  if (w >= 500) {
-    const byX = items.slice().sort((a, b) => a.ax - b.ax);
-    byX.forEach((it, k) => { it.side = k < byX.length / 2 ? -1 : 1; });
+  const show = (mode === 2 || mode === 3) && !card.classList.contains("show");
+  annotationNav.hidden = !show;
+  for (const [i,p] of labeledParts.entries()) {labelEls.get(p).classList.remove("on");if(!show||i!==selectedAnnotation)leaderPaths.get(p).classList.remove("on");}
+  if (!show) {for(const part of labeledParts)if(part.mesh.material?.emissive)part.mesh.material.emissive.set(0);return;}
+  const available = labeledParts.map((p,i)=>p.labelOn !== false ? i : -1).filter(i=>i>=0);
+  if (!available.includes(selectedAnnotation)) selectedAnnotation = available[0];
+  annotationButtons.forEach((b,i)=>{b.hidden=!available.includes(i);b.disabled=!available.includes(i);});
+  annotationSelect.value=String(selectedAnnotation);
+  annotationNav.style.top = innerHeight<500 ? `${innerHeight-65}px` : `${modelStage.y+modelStage.h+26}px`;
+  annotationNav.style.left = innerHeight<500 ? `${innerWidth-285}px` : '14px';
+  const p=labeledParts[selectedAnnotation], b=annotationSelect;
+  for(const part of labeledParts){if(part.mesh.material?.emissive){part.mesh.material.emissive.set(part===p ? '#8a5c22':'#000000');part.mesh.material.emissiveIntensity=part===p ? .24 : 0;}}
+  p.mesh.geometry.computeBoundingBox();
+  tmpV.copy(p.anchor).clamp(p.mesh.geometry.boundingBox.min,p.mesh.geometry.boundingBox.max); p.mesh.localToWorld(tmpV); tmpV.project(camera);
+  const ax=modelStage.x+(tmpV.x*.5+.5)*modelStage.w;
+  const ay=modelStage.y+(-tmpV.y*.5+.5)*modelStage.h;
+  if(tmpV.z>1||tmpV.z< -1||ax<modelStage.x||ax>modelStage.x+modelStage.w||ay<modelStage.y||ay>modelStage.y+modelStage.h)return;
+  const r=b.getBoundingClientRect(),lx=r.left+r.width/2,ly=r.top-5;
+  const path=leaderPaths.get(p);
+  leaderSvg.setAttribute("viewBox",`0 0 ${innerWidth} ${innerHeight}`);
+  const rail = modelStage.x+modelStage.w+3;
+  path.setAttribute("d",`M ${ax} ${ay} L ${lx} ${ly}`);
+  const hitRay=new THREE.Raycaster();
+  hitRay.setFromCamera(new THREE.Vector2(tmpV.x,tmpV.y),camera);
+  const hits=hitRay.intersectObjects([slab,board,askA,askB,...tiles,...cols.values()],false);
+  if(hits[0]?.object===p.mesh)path.classList.add("on");else path.classList.remove("on");
+}
+function fitSpatialStage() {
+  modelStage=spatialStage();
+  camera.aspect=modelStage.w/modelStage.h;
+  camera.updateProjectionMatrix();
+  if(mode!==2&&mode!==3){lastFittedMode=-1;return;}
+  // Fit all meaningful parts (including exploded poses) at every camera angle.
+  scene.updateMatrixWorld(true);
+  const box=new THREE.Box3();
+  for(const m of [slab,board,askA,askB,...tiles,...cols.values()]) {
+    if(m.visible && m.scale.length()>0.05)box.expandByObject(m);
   }
-  const columns = w < 500 ? [[0, items.slice().sort((a, b) => a.ay - b.ay)]] : [[-1, []], [1, []]];
-  if (w >= 500) {
-    columns[0][1] = items.filter((it) => it.side === -1).sort((a, b) => a.ay - b.ay);
-    columns[1][1] = items.filter((it) => it.side === 1).sort((a, b) => a.ay - b.ay);
+  const sphere=box.getBoundingSphere(new THREE.Sphere());
+  const half=Math.min(THREE.MathUtils.degToRad(camera.fov/2),Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect));
+  let distance=0;
+  const inverse=camera.quaternion.clone().invert();
+  const tanY=Math.tan(THREE.MathUtils.degToRad(camera.fov/2)),tanX=tanY*camera.aspect;
+  for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+    const v=new THREE.Vector3(x,y,z).sub(sphere.center).applyQuaternion(inverse);
+    distance=Math.max(distance,v.z+Math.max(Math.abs(v.x)/tanX,Math.abs(v.y)/tanY));
   }
-  let minAx = Infinity, maxAx = -Infinity;
-  for (const m of [slab, board]) {
-    m.geometry.computeBoundingBox();
-    const bb = m.geometry.boundingBox;
-    for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
-      tmpV.set(x, y, z); m.localToWorld(tmpV); tmpV.project(camera);
-      const sx = (tmpV.x * 0.5 + 0.5) * w;
-      if (sx < minAx) minAx = sx; if (sx > maxAx) maxAx = sx;
-    }
-  }
-  for (const [side0, col] of columns) {
-    let prevY = topReserveY() + 4;
-    for (const it of col) {
-      let ly = Math.max(prevY + 34, it.ay - 18);
-      ly = Math.min(h - 110, ly);
-      const side = w < 500 ? (it.ax < w / 2 ? -1 : 1) : it.side;
-      const half = it.el.offsetWidth / 2 + 8;
-      const lx0 = w >= 500
-        ? Math.max(70, Math.min(w - 70, side < 0 ? minAx - 24 - half : maxAx + 24 + half))
-        : (side < 0 ? half : w - half);
-      const lx = Math.max(half, Math.min(w - half, lx0));
-      it.el.style.transform = `translate(${Math.round(lx)}px, ${Math.round(ly)}px) translate(-50%, -100%)`;
-      const kx = (it.ax + lx) / 2 + side * 8;
-      const ky = (it.ay + ly) / 2 - 6;
-      it.path.setAttribute("d", `M ${it.ax.toFixed(1)} ${it.ay.toFixed(1)} Q ${kx.toFixed(1)} ${ky.toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)}`);
-      it.el.classList.add("on"); it.path.classList.add("on");
-      prevY = ly;
-    }
-  }
+  distance*=1.08;
+  const dir=camera.position.clone().sub(controls.target).normalize();
+  controls.target.copy(sphere.center);
+  camera.position.copy(sphere.center).addScaledVector(dir,distance*zoomScale);
+  if(lastFittedMode===mode&&fittedDistance>0)zoomScale=Math.max(1,Math.min(1.7,camera.position.distanceTo(controls.target)/fittedDistance));
+  else zoomScale=1;
+  fittedDistance=distance;lastFittedMode=mode;
+  controls.minDistance=distance;controls.maxDistance=distance*1.7;
+  camera.lookAt(sphere.center);
+  camera.updateMatrixWorld(true);
 }
 
 /* ---------- Why? - feel the problem before meeting the fix ---------- */
@@ -619,7 +633,7 @@ const cardName = document.getElementById("card-name");
 const cardText = document.getElementById("card-text");
 const cardChoices = document.getElementById("card-choices");
 const cardOk = document.getElementById("card-ok");
-const chrome = [...document.querySelectorAll(".chrome")].filter((c) => c.id !== "modes");
+const chrome = [...document.querySelectorAll(".chrome")].filter((c) => !["modes","card","stepui"].includes(c.id));
 const modeBtns = [...document.querySelectorAll(".modebtn")];
 const stepui = document.getElementById("stepui");
 const nextBtn = document.getElementById("next");
@@ -666,7 +680,7 @@ function setMode(m) {
   compareEl.classList.toggle("show", m === 0);
   stepui.classList.remove("show");
   hint.textContent = HINTS[m];
-  hint.classList.add("show");
+  hint.classList.toggle("show",m!==2&&m!==3);
   if (m === 2) {
     banner.classList.remove("pop"); oneliner.classList.remove("show");
     for (const p of PARTS) spring(p.mesh.position, "y", p.home + p.out, { stiffness: 42, damping: 8.5 });
@@ -837,7 +851,8 @@ canvas.addEventListener("pointerdown", (e) => { downX = e.clientX; downY = e.cli
 canvas.addEventListener("pointermove", (e) => { moved += Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY); downX = e.clientX; downY = e.clientY; });
 canvas.addEventListener("pointerup", (e) => {
   if (moved > 14) return;
-  const nd = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -((e.clientY / innerHeight) * 2 - 1));
+  if(e.clientX<modelStage.x||e.clientX>modelStage.x+modelStage.w||e.clientY<modelStage.y||e.clientY>modelStage.y+modelStage.h)return;
+  const nd = new THREE.Vector2(((e.clientX-modelStage.x) / modelStage.w) * 2 - 1, -((e.clientY-modelStage.y) / modelStage.h) * 2 + 1);
   ray.setFromCamera(nd, camera);
   /* the prediction: the shelf itself is the answer sheet */
   if (mode === 3 && predictPending) {
@@ -1070,14 +1085,20 @@ function tick() {
   for (const m of [askA, askB, askC]) m.children.forEach((c) => { if (c.userData.billboard) c.quaternion.copy(camera.quaternion); });
 
   const len = camera.position.length();
-  camera.position.setLength(lerp(len, camDist, 1 - Math.exp(-2.2 * dt)));
+  if(mode!==2&&mode!==3)camera.position.setLength(lerp(len, camDist, 1 - Math.exp(-2.2 * dt)));
   const tall = innerWidth / innerHeight < 0.75;
   const lift = mode === 2 ? (tall ? 1.4 : 1.0) : mode === 3 ? (tall ? 1.2 : 1.7) : 0;
   controls.target.y = lerp(controls.target.y, baseTargetY + lift, 1 - Math.exp(-2.2 * dt));
   stepSprings(dt);
   controls.update();
+  fitSpatialStage();
   projectLabels();
-  renderer.render(scene, camera);
+  renderer.setViewport(0,0,innerWidth,innerHeight);renderer.setScissorTest(false);renderer.clear();
+  renderer.setViewport(modelStage.x,innerHeight-modelStage.y-modelStage.h,modelStage.w,modelStage.h);
+  renderer.setScissor(modelStage.x,innerHeight-modelStage.y-modelStage.h,modelStage.w,modelStage.h);
+  renderer.setScissorTest(true);
+  if(mode!==4 && !(card.classList.contains("show")&&!card.classList.contains("secret")))renderer.render(scene, camera);
+  renderer.setScissorTest(false);
   requestAnimationFrame(tick);
 }
 tick();
@@ -1095,3 +1116,16 @@ setTimeout(() => {
   setTimeout(() => hint.classList.add("show"), 800);
   wakeChrome();
 }, 1900);
+
+// Read-only layout evidence for regression checks, no scene mutation hooks.
+export function spatialLayoutEvidence() {
+ const bounds=[];
+ for(const m of [slab,board,askA,askB,...tiles,...cols.values()]){
+  if(!m.visible||m.scale.length()<.05)continue;
+  const box=new THREE.Box3().setFromObject(m);
+  for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+   const v=new THREE.Vector3(x,y,z).project(camera);bounds.push({x:modelStage.x+(v.x*.5+.5)*modelStage.w,y:modelStage.y+(-v.y*.5+.5)*modelStage.h});
+  }
+ }
+ return {mode,stage:{...modelStage},bounds,selected:selectedAnnotation,occluded:!document.querySelector('.leader.on')};
+}
