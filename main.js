@@ -694,6 +694,12 @@ function setMode(m) {
   } else {
     setTimeout(() => { if (mode !== 3) { banner.classList.remove("pop"); oneliner.classList.remove("show"); } }, 400);
   }
+  /* the quiz keeps the stage to itself: requests step off so the card and
+     the final banner own the frame */
+  const askOut = m === 4 ? 0.001 : 1;
+  for (const a of [askA, askB]) {
+    spring(a.scale, "x", askOut); spring(a.scale, "y", askOut); spring(a.scale, "z", askOut);
+  }
   if (m === 4) startQuiz();
   wakeChrome();
 }
