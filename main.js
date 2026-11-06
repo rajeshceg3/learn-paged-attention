@@ -468,7 +468,16 @@ function projectLabels() {
   const hitRay=new THREE.Raycaster();
   hitRay.setFromCamera(new THREE.Vector2(tmpV.x,tmpV.y),camera);
   const hits=hitRay.intersectObjects([slab,board,askA,askB,...tiles,...cols.values()],false);
-  if(hits[0]?.object===p.mesh)path.classList.add("on");else path.classList.remove("on");
+  let clear=hits[0]?.object===p.mesh;
+  // A short connector must not cross a different part after leaving its anchor.
+  for(let t=.08;clear&&t<.94;t+=.08){
+   const sx=ax+(lx-ax)*t,sy=ay+(ly-ay)*t;
+   if(sx<modelStage.x||sx>modelStage.x+modelStage.w||sy<modelStage.y||sy>modelStage.y+modelStage.h)continue;
+   hitRay.setFromCamera(new THREE.Vector2((sx-modelStage.x)/modelStage.w*2-1,1-(sy-modelStage.y)/modelStage.h*2),camera);
+   const crossing=hitRay.intersectObjects([slab,board,askA,askB,...tiles,...cols.values()],false)[0];
+   if(crossing&&crossing.object!==p.mesh)clear=false;
+  }
+  path.classList.toggle("on",clear);
 }
 function fitSpatialStage() {
   modelStage=spatialStage();
@@ -662,6 +671,7 @@ function setMode(m) {
   const prevMode = mode;
   clearTimeout(secretTimer);
   mode = m;
+  document.body.dataset.mode=String(m);
   camDist = camFor(m);
   controls.maxDistance = camDist + 1;
   modeBtns.forEach((b, i) => {

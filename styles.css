@@ -301,3 +301,5 @@ body::after {
 }
 @media(max-height:499px){#card:not(.secret){left:14px;right:auto;bottom:20px;width:calc(100vw - 320px);max-height:calc(100vh - 40px);overflow:auto;}}
 @media(max-height:499px){#stepui{width:272px;right:12px;justify-content:center;gap:6px;}#next{padding:4px 14px;}#back,#autotoggle{font-size:13px;padding:4px 8px;}}
+
+body[data-mode="2"] #hint,body[data-mode="3"] #hint,body[data-mode="4"] #hint{visibility:hidden;}
