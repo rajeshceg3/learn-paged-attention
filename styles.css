@@ -34,7 +34,11 @@ body { font-family: "Fredoka", system-ui, sans-serif; -webkit-font-smoothing: an
   text-align: center; font-weight: 600; color: var(--ink);
   font-size: clamp(2.6rem, 13vw, 4.6rem);
   pointer-events: none; opacity: 0;
+  transition: opacity 0.3s ease;
 }
+/* the paging-secret note takes the stage: the stroke word steps back until
+   the learner dismisses the note */
+#banner.muted { opacity: 0 !important; }
 #banner.pop { animation: pop 0.7s var(--ease-spring) forwards; }
 @keyframes pop {
   0% { opacity: 0; transform: scale(0.4); }

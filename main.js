@@ -656,7 +656,13 @@ function setMode(m) {
   });
   controls.autoRotate = m === 1 && !reducedMotion;
   card.classList.remove("show", "secret");
+  banner.classList.remove("muted");
   cardChoices.classList.remove("show");
+  /* Your turn gives the stage to the learner's words: on wide screens the map
+     drops out of the final headline's way */
+  const quizStage = m === 4 && !PORTRAIT;
+  spring(boardPop.position, "y", quizStage ? 0.9 : (PORTRAIT ? 1.12 : 1.5));
+  spring(boardPop.position, "z", quizStage ? -2.75 : (PORTRAIT ? -3.35 : -2.25));
   compareEl.classList.toggle("show", m === 0);
   stepui.classList.remove("show");
   hint.textContent = HINTS[m];
@@ -812,6 +818,7 @@ autoBtn.addEventListener("click", () => {
 
 cardOk.addEventListener("click", () => {
   if (mode === 4 && quizAdvance()) { wakeChrome(); return; }
+  if (card.classList.contains("secret")) banner.classList.remove("muted");
   card.classList.remove("show");
   wakeChrome();
 });
@@ -985,7 +992,7 @@ function tick() {
       if (stroke === 2 && !boomSeen) {
         boomSeen = true;
         secretTimer = setTimeout(() => {
-          if (mode === 3) { cardName.textContent = "The paging secret"; cardText.textContent = MAGIC; card.classList.add("secret", "show"); }
+          if (mode === 3) { cardName.textContent = "The paging secret"; cardText.textContent = MAGIC; card.classList.add("secret", "show"); banner.classList.add("muted"); }
         }, 2600);
       }
     }
