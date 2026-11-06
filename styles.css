@@ -276,3 +276,26 @@ body::after {
   .modebtn { min-height: 44px; padding: 0.2rem 0.55rem; font-size: 0.84rem; border-radius: 15px; }
   #compare button { white-space: nowrap; min-height: 42px; }
 }
+
+/* Part names have their own strip below the model, never over its surface. */
+#annotation-nav {position:fixed;left:14px;right:14px;z-index:16;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+#annotation-nav[hidden] {display:none;}
+#annotation-nav button {font:500 14px "Fredoka",system-ui,sans-serif;color:var(--ink);background:var(--paper);border:1px solid #b8ab98;border-radius:12px;padding:7px 9px;min-height:36px;cursor:pointer;}
+#annotation-nav button[aria-pressed="true"] {border:2px solid #33241c;background:#ffd9a8;}
+#annotation-nav button:focus-visible {outline:3px solid #285f9b;outline-offset:3px;}
+.leader.on {opacity:.75;}
+#annotation-nav select {font:500 17px "Fredoka",system-ui,sans-serif;min-height:44px;padding:8px 32px 8px 14px;border:2px solid #33241c;border-radius:15px;color:var(--ink);background:var(--clay);box-shadow:2px 3px 0 #33241c;max-width:calc(100vw - 28px);cursor:pointer;}
+#annotation-nav select:focus-visible {outline:3px solid #285f9b;outline-offset:4px;}
+@media(max-height:499px){
+ #modes{left:auto;right:12px;bottom:86px;transform:none;width:272px;gap:6px;padding:0;}
+ .modebtn{font-size:14px;min-height:38px;padding:4px 10px;border-radius:12px;}
+ #stepui{left:auto;right:20px;bottom:184px;transform:none;gap:8px;}
+ #next{min-height:44px;font-size:18px;padding:4px 18px;}
+ #banner{top:12px;left:auto;right:12px;width:272px;font-size:27px;}
+ #oneliner{top:78px;left:auto;right:12px;width:272px;font-size:15px;padding:0 4px;}
+ #hint{display:none;}
+ #annotation-nav{right:14px;}
+ #card{left:auto;right:16px;bottom:86px;width:270px;max-height:calc(100vh - 100px);overflow:auto;}
+ #card h2{font-size:21px;}#card p{font-size:16px;}
+ #compare{left:auto;right:20px;bottom:236px;transform:none;}
+}
