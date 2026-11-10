@@ -1,0 +1,28 @@
+{
+  "name": "learn-paged-attention",
+  "version": "1.0.0",
+  "description": "PagedAttention interactive explainer",
+  "main": "main.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajeshceg3/learn-paged-attention.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rajeshceg3/learn-paged-attention/issues"
+  },
+  "homepage": "https://github.com/rajeshceg3/learn-paged-attention#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  },
+  "private": true
+}
